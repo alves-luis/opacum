@@ -26,14 +26,9 @@ RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
 COPY swap/composer.json swap/composer.lock /swap/
 RUN php composer.phar install --prefer-dist --no-scripts --no-autoloader && rm -rf /root/.composer
 
-# Install Yarn
-RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
-  && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list \
-  && apt-get update && apt-get install yarn
-
-# Install yarn dependencies
+# Install npm dependencies
 COPY swap/package.json swap/package-lock.json /swap/
-RUN yarn install
+RUN npm install
 
 # Copy repo
 COPY swap /swap/
@@ -41,15 +36,14 @@ COPY swap /swap/
 # Finish composer
 RUN php composer.phar dump-autoload --no-scripts --optimize
 
-# Generate application key
-# This should run after building the container
-RUN php artisan key:generate
-
 # Build assets
 RUN npm run prod
+
+# Define entrypoint
+COPY entrypoint.sh /usr/local/bin/
+COPY wait-for-it.sh /usr/local/bin/
+ENTRYPOINT ["entrypoint.sh"]
 
 # Expose port
 EXPOSE 8000
 
-# Start local server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0"]
