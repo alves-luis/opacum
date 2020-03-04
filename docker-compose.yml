@@ -1,0 +1,23 @@
+version: "3.7"
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swap
+    ports:
+      - "8000:8000"
+    networks:
+      - net-swap
+  db:
+    image: postgres:12
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=swapper
+      - POSTGRES_DB=swapper
+      - POSTGRES_PASSWORD=secret
+    networks:
+      - net-swap
+networks:
+  net-swap:
+    driver: bridge
