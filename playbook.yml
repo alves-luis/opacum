@@ -1,0 +1,71 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - docker
+    - flask
+
+- hosts:
+  - "machine-1"
+  become: yes
+  tasks:
+    - name: Init a new swarm
+      docker_swarm:
+        state: present
+        advertise_addr: "{{ hostvars['machine-1'].ansible_enp0s8.ipv4.address }}"
+      register: swarm_info
+    - name: Create an Overlay network
+      docker_network:
+        name: sms-net
+        driver: overlay
+        scope: swarm
+        attachable: yes
+        ipam_config:
+          - subnet: 10.10.10.0/24
+
+- hosts:
+  - "machine-1"
+  become: yes
+  roles:
+    - role: docker-swarm
+      vars:
+        type: "manager"
+
+- hosts:
+  - "machine-2"
+  - "machine-3"
+  become: yes
+  roles:
+    - role: docker-swarm
+      vars:
+        type: "worker"
+
+- hosts: all
+  become: yes
+  tasks:
+    - name: Copy flask image files
+      copy:
+        src: ./flask_app/
+        dest: /opt/flask_app
+    - name: Add Flask image to local registry
+      docker_image:
+        name: flask
+        tag: "0.1"
+        source: build
+        build:
+          path: /opt/flask_app
+        force_tag: yes
+        state: present
+
+- hosts:
+  - "machine-1"
+  become: yes
+  tasks:
+    - name: Add Flask service to Swarm
+      docker_swarm_service:
+        name: flask
+        image: flask:0.1
+        publish:
+          - published_port: 5000
+            target_port: 5000
+        state: present
