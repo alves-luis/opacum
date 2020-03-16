@@ -3,7 +3,6 @@
   become: yes
   roles:
     - docker
-    - flask
 
 - hosts:
   - "machine-1"
@@ -42,20 +41,9 @@
 
 - hosts: all
   become: yes
-  tasks:
-    - name: Copy flask image files
-      copy:
-        src: ./flask_app/
-        dest: /opt/flask_app
-    - name: Add Flask image to local registry
-      docker_image:
-        name: flask
-        tag: "0.1"
-        source: build
-        build:
-          path: /opt/flask_app
-        force_tag: yes
-        state: present
+  roles:
+    - role: flask
+    - role: swap
 
 - hosts:
   - "machine-1"
@@ -69,3 +57,10 @@
           - published_port: 5000
             target_port: 5000
         state: present
+        force_update: yes
+        mounts:
+          - target: '/var/run/docker.sock'
+            source: '/var/run/docker.sock'
+        placement:
+          constraints:
+            - node.role == manager
