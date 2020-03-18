@@ -4,10 +4,10 @@ FROM python:3.8.2-alpine3.11
 RUN pip3 install flask docker
 
 # Copy the app itself to the container
-COPY swarm-deployer.py /opt/swarm-deployer/
+COPY swarm-deployer.py /swarm-deployer/
 
 # Change working dir
-WORKDIR /opt/swarm-deployer
+WORKDIR /swarm-deployer
 
 # Set name of the Flask App
 ENV FLASK_APP=swarm-deployer.py
