@@ -42,8 +42,7 @@
 - hosts: all
   become: yes
   roles:
-    - role: flask
-    - role: swap
+    - role: swap-deployer-service
 
 - hosts:
   - "machine-1"
@@ -51,8 +50,9 @@
   tasks:
     - name: Add Flask service to Swarm
       docker_swarm_service:
-        name: flask
-        image: flask:0.1
+        name: swarp-deployer
+        image: swarm-deployer:0.1
+        # should not be exposed in production
         publish:
           - published_port: 5000
             target_port: 5000

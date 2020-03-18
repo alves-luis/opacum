@@ -1,0 +1,16 @@
+---
+- name: Copy Flask Deployer image files
+  copy:
+    src: ./services/swap-deployer/
+    dest: /opt/swarm-deployer
+- name: Add Flask image to local registry
+  docker_image:
+    name: swarm-deployer
+    tag: "{{ version }}"
+    source: build
+    build:
+      path: /opt/swarm-deployer
+      pull: no
+    force_tag: yes
+    state: present
+    force_source: yes
