@@ -3,10 +3,10 @@ services:
   app:
     build:
       context: .
-      dockerfile: dev.Dockerfile
+      dockerfile: prod_swap.Dockerfile
     container_name: swap
     expose:
-      - "8000"
+      - "80"
     depends_on:
       - db
     networks:

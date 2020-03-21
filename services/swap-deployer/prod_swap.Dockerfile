@@ -35,17 +35,22 @@ RUN composer dump-autoload --optimize
 RUN npm run prod
 
 # Install Apache web server
-RUN apt-get update && apt-get install -y apache2
-
-# Change web_root to laravel /var/www/html/public
-RUN sed -i -e "s/html/html\/public/g" /etc/apache2/sites-enabled/000-default.conf
-
-# Enable Apache module rewrite
-RUN a2enmod rewrite && service apache2 restart
+RUN apt-get update \
+  && apt-get install -y apache2 apache2-utils \
+  && apt-get clean
 
 # Change ownership of files
 RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 RUN chown -R www-data:www-data /var/www/html
+
+# Change web_root to laravel /var/www/html/public
+COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
+#RUN sed -ri -e 's/\/var\/www\/html/\/var\/www\/html\/public/g' /etc/apache2/sites-available/*.conf
+#RUN sed -ri -e 's/\/var\/www/\/var\/www\/html\/public/g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+#RUN sed -ri -e 's/\/var\/www\/html/\/var\/www\/html\/public/g' /etc/apache2/sites-enabled/*.conf
+
+# Enable Apache module rewrite
+RUN a2enmod rewrite && service apache2 restart
 
 # Expose 80 port
 EXPOSE 80
