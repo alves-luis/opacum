@@ -1,21 +1,48 @@
-from flask import Flask
-from flask import request
+from flask import Flask, abort, request
 import docker
 
 app = Flask(__name__)
 
+"""
+Options for deployment (that go in the HTTP POST body)
+* means it's mandatory
+- mail_domain *
+- admin *
+    - email *
+    - password *
+- classes (csv file) *
+- modules to be enabled (list)
+"""
 @app.route('/deploy/<subdomain>/', methods=['POST'])
 def deploy(subdomain):
-    client = docker.from_env()
-    net = create_network(client, subdomain)
-    postgres_service = setup_postgres_service(client, subdomain)
-    swap_service = setup_swap_service(client, subdomain)
+    if not request.json:
+        abort(400, 'Not JSON encoded body')
 
-    services = client.services.list()
+    if not 'mail_domain' in request.json:
+        abort(400, 'Missing mail_domain field in body')
+
+    if not 'admin' in request.json and not 'email' in request.json['admin']:
+        abort(400, 'Missing email field in admin fields in body')
+
+    if not 'admin' in request.json and not 'password' in request.json['password']:
+        abort(400, 'Missing password field in admin fields in body')
+    #docker_client = docker.from_env()
+    mail_domain = request.json['mail_domain']
+    admin_mail = request.json['admin']['email']
+    print(mail_domain)
+
+    """
+    net = create_network(docker_client, subdomain)
+    postgres_service = setup_postgres_service(docker_client, subdomain)
+    swap_service = setup_swap_service(docker_client, subdomain)
+
+    services = docker_client.services.list()
     string_result = ""
     for service in services:
         string_result += service.name
     return string_result
+    """
+    return admin_mail
 
 def create_network(client, subdomain):
     network_name = subdomain + "-net"
