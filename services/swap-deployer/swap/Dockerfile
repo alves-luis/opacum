@@ -12,17 +12,18 @@ RUN apt-get update && apt-get install -y software-properties-common git zip unzi
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install NodeJS
-RUN apt-get install -y curl && curl -sL https://deb.nodesource.com/setup_10.x | bash - \
-	 && apt-get install -y nodejs
-
 # Install Composer dependencies
 WORKDIR /var/www/html
 COPY swap/composer.json swap/composer.lock /var/www/html/
 RUN composer install --no-interaction --no-ansi --no-dev --no-plugins --no-scripts --no-autoloader && rm -rf /root/.composer
 
-# Install npm dependencies
-COPY swap/package.json swap/package-lock.json /var/www/html/
+# Install NodeJS
+RUN apt-get update && apt-get install -y curl
+RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
+RUN apt-get update && apt-get install -y nodejs
+
+# Install yarn dependencies
+COPY swap/package.json /var/www/html/
 RUN npm install
 
 # Copy repo
@@ -45,9 +46,6 @@ RUN chown -R www-data:www-data /var/www/html
 
 # Change web_root to laravel /var/www/html/public
 COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
-#RUN sed -ri -e 's/\/var\/www\/html/\/var\/www\/html\/public/g' /etc/apache2/sites-available/*.conf
-#RUN sed -ri -e 's/\/var\/www/\/var\/www\/html\/public/g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-#RUN sed -ri -e 's/\/var\/www\/html/\/var\/www\/html\/public/g' /etc/apache2/sites-enabled/*.conf
 
 # Enable Apache module rewrite
 RUN a2enmod rewrite && service apache2 restart

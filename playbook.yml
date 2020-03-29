@@ -39,19 +39,18 @@
       vars:
         type: "worker"
 
-- hosts: all
-  become: yes
-  roles:
-    - role: swap-deployer-service
-
 - hosts:
   - "machine-1"
   become: yes
   tasks:
-    - name: Add Flask service to Swarm
+    - name: Login to Docker Hub
+      docker_login:
+        username: alvesluis98
+        password: # fill in this gap
+    - name: Add swap-deployer service to Swarm
       docker_swarm_service:
-        name: swarp-deployer
-        image: swarm-deployer:0.1
+        name: swap-deployer
+        image: alvesluis98/swap-deployer:0.1
         # should not be exposed in production
         publish:
           - published_port: 5000

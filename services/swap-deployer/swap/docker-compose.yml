@@ -3,7 +3,6 @@ services:
   app:
     build:
       context: .
-      dockerfile: prod_swap.Dockerfile
     container_name: swap
     expose:
       - "80"
