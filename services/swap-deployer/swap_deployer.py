@@ -73,13 +73,10 @@ def setup_swap_service(client, subdomain):
     swap_name = subdomain + "-app"
     network_name = subdomain + "-net"
     image = client.images.build(dockerfile="Dockerfile", path="./swap", tag=f"{subdomain}-swap")
-    ep_spec = docker.types.EndpointSpec(ports={
-        80: 80,
-    })
     service = client.services.create(f"{subdomain}-swap", command=None,
         name=swap_name,
-        networks=[network_name, "sms-net"],
-        endpoint_spec=ep_spec)
+        networks=[network_name, "sms-net"]
+    )
     return service
 
 

@@ -46,7 +46,7 @@
     - name: Login to Docker Hub
       docker_login:
         username: alvesluis98
-        password: # fill in this gap
+        password: # FILL this in
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer
@@ -63,3 +63,16 @@
         placement:
           constraints:
             - node.role == manager
+        networks:
+          - sms-net
+    - name: Add reverse proxy to service
+      docker_swarm_service:
+        name: reverse-proxy
+        image: alvesluis98/swap-deployer:reverse
+        publish:
+          - published_port: 80
+            target_port: 80
+        state: present
+        force_update: yes
+        networks:
+          - sms-net
