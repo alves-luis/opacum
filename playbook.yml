@@ -39,6 +39,15 @@
       vars:
         type: "worker"
 
+- hosts: all
+  become: yes
+  tasks:
+    - name: Create folder structure for reverse proxy
+      file:
+        path: /opt/reverse-proxy/sites/
+        state: directory
+        mode: 0755
+
 - hosts:
   - "machine-1"
   become: yes
@@ -46,7 +55,7 @@
     - name: Login to Docker Hub
       docker_login:
         username: alvesluis98
-        password: # FILL this in
+        password: # FILL THIS IN
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer
@@ -60,6 +69,8 @@
         mounts:
           - target: '/var/run/docker.sock'
             source: '/var/run/docker.sock'
+          - target: '/opt/swap-deployer/sites'
+            source: '/opt/reverse-proxy/sites'
         placement:
           constraints:
             - node.role == manager
@@ -74,5 +85,11 @@
             target_port: 80
         state: present
         force_update: yes
+        mounts:
+          - target: '/etc/nginx/sites-enabled/'
+            source: '/opt/reverse-proxy/sites/'
         networks:
           - sms-net
+        placement:
+          constraints:
+            - node.role == manager

@@ -56,6 +56,10 @@ EXPOSE 80
 # Define entrypoint
 COPY entrypoint.sh /usr/local/bin/
 COPY wait-for-it.sh /usr/local/bin/
+
 # Temporarily set .env.example as .env
 COPY .env /var/www/html/.env
-ENTRYPOINT [ "entrypoint.sh" ]
+ARG db_host
+ARG db_host=feup-db
+ENV DB_HOST=${db_host}
+ENTRYPOINT entrypoint.sh ${DB_HOST}

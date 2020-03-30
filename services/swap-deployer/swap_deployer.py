@@ -1,6 +1,6 @@
 from flask import Flask, abort, request
+from jinja2 import Template
 import docker
-import os
 
 application = Flask(__name__)
 
@@ -49,7 +49,18 @@ def deploy(subdomain):
     postgres_service = setup_postgres_service(docker_client, subdomain)
     swap_service = setup_swap_service(docker_client, subdomain)
     #setup reverse proxy TODO
+    setup_reverse_proxy(subdomain)
     return "Ok"
+
+"""
+Setup reverse-proxy configuration
+"""
+def setup_reverse_proxy(subdomain):
+    # Should verify the subdomain here
+    nginx_template = Template(open('nginx_template.j2', 'r').read()).render(subdomain=subdomain)
+    file = open(f"/opt/swap-deployer/sites/{subdomain}.conf", 'w')
+    print(nginx_template, file=file)
+
 
 """
 Create a new network
@@ -72,7 +83,10 @@ def setup_postgres_service(client, subdomain):
 def setup_swap_service(client, subdomain):
     swap_name = subdomain + "-app"
     network_name = subdomain + "-net"
-    image = client.images.build(dockerfile="Dockerfile", path="./swap", tag=f"{subdomain}-swap")
+    image = client.images.build(dockerfile="Dockerfile",
+        path="./swap",
+        tag=f"{subdomain}-swap",
+        buildargs={ "db_host": f"{subdomain}-db" })
     service = client.services.create(f"{subdomain}-swap", command=None,
         name=swap_name,
         networks=[network_name, "sms-net"]

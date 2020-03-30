@@ -3,14 +3,16 @@ services:
   app:
     build:
       context: .
+      args:
+        subdomain: miei-db
     container_name: swap
     expose:
       - "80"
     depends_on:
-      - db
+      - miei-db
     networks:
       - net-swap
-  db:
+  miei-db:
     image: postgres:12
     container_name: postgres
     expose:
