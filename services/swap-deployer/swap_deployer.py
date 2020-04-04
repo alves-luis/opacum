@@ -49,21 +49,25 @@ def deploy(subdomain):
     postgres_service = setup_postgres_service(docker_client, subdomain)
     swap_service = setup_swap_service(docker_client, subdomain)
     #setup reverse proxy TODO
-    setup_reverse_proxy(subdomain)
+    setup_reverse_proxy(docker_client, subdomain)
     return "Ok"
 
 """
 Setup reverse-proxy configuration
 """
-def setup_reverse_proxy(subdomain):
+def setup_reverse_proxy(client, subdomain):
     # Should verify the subdomain here
     nginx_template = Template(open('nginx_template.j2', 'r').read()).render(subdomain=subdomain)
     file = open(f"/opt/swap-deployer/sites/{subdomain}.conf", 'w')
     print(nginx_template, file=file)
+    services = client.services.list(filters={'name': 'reverse-proxy'})
+    rp_id = services.pop().id
+    rp_service = client.services.get(rp_id)
+    rp_service.force_update()
 
 
 """
-Create a new network
+Create a new network, given a subdomain
 """
 def create_network(client, subdomain):
     network_name = subdomain + "-net"

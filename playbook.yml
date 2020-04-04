@@ -76,7 +76,7 @@
             - node.role == manager
         networks:
           - sms-net
-    - name: Add reverse proxy to service
+    - name: Add reverse proxy to Swarm
       docker_swarm_service:
         name: reverse-proxy
         image: alvesluis98/swap-deployer:reverse
@@ -93,3 +93,7 @@
         placement:
           constraints:
             - node.role == manager
+        update_config:
+          delay: 10s
+          parallelism: 1
+        replicas: 2
