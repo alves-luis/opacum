@@ -47,15 +47,15 @@
         path: /opt/reverse-proxy/sites/
         state: directory
         mode: 0755
+    - name: Login to Docker Hub
+      docker_login:
+        username: alvesluis98
+        password: #FILL THIS IN
 
 - hosts:
   - "machine-1"
   become: yes
   tasks:
-    - name: Login to Docker Hub
-      docker_login:
-        username: alvesluis98
-        password: # FILL THIS IN
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer

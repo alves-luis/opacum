@@ -89,9 +89,11 @@ def setup_swap_service(client, subdomain):
     network_name = subdomain + "-net"
     image = client.images.build(dockerfile="Dockerfile",
         path="./swap",
-        tag=f"{subdomain}-swap",
+        tag=f"alvesluis98/swap-deployer:{subdomain}-swap",
         buildargs={ "db_host": f"{subdomain}-db" })
-    service = client.services.create(f"{subdomain}-swap", command=None,
+    client.login(username='alvesluis98', password='secret') # should be stored in secret
+    client.images.push(f'alvesluis98/swap-deployer:{subdomain}-swap')
+    service = client.services.create(f"alvesluis98/swap-deployer:{subdomain}-swap", command=None,
         name=swap_name,
         networks=[network_name, "sms-net"]
     )
