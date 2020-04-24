@@ -1,0 +1,17 @@
+<?php
+
+use App\Judite\Models\Course;
+use Illuminate\Database\Seeder;
+
+class CoursesTableSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run()
+    {
+      {% for course in courses %}
+        Course::create(['code' => '{{ course.code }}', 'name' => '{{ course.name }}', 'semester' => {{ course.semester }}, 'year' =>  {{ course.year }}]);
+      {% endfor %}
+    }
+}
