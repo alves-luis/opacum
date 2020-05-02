@@ -50,7 +50,7 @@
     - name: Login to Docker Hub
       docker_login:
         username: alvesluis98
-        password: #FILL THIS IN
+        password: «# FILL THIS IN
 
 - hosts:
   - "machine-1"
@@ -59,7 +59,7 @@
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer
-        image: alvesluis98/swap-deployer:0.1
+        image: alvesluis98/swap-deployer:deployer
         # should not be exposed in production
         publish:
           - published_port: 5000

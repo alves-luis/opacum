@@ -10,42 +10,44 @@ REGISTRY_USERNAME = "alvesluis98"
 REGISTRY_PASSWORD = ""
 REGISTRY_URL = "alvesluis98/swap-deployer"
 DEFAULT_DOCKER_NETWORK = "sms-net"
+POSTGRES_USER = "swapper"
+POSTGRES_DATABASE = "swapper"
+POSTGRES_PASSWORD = "secret"
 
 application = Flask(__name__)
 
 def validate_deploy_request():
     if not request.json:
         abort(400, 'Not JSON encoded body')
-    
-    mandatory_fields = { 
-        "mail_domain": [],
-        "admin": [ "email", "password" ],
-        "courses": [],
-    }
-
-    course_fields = [ "code", "name", "semester", "year" ]
 
     request_dict = {}
 
-    for field, sub_fields in mandatory_fields.items():
-        field_value = []
+    mandatory_fields = [ "mail_domain", "admin", "courses" ]
+
+    for field in mandatory_fields:
         if not field in request.json:
             abort(400, f'Missing {field} in body')
-        for sub_field in sub_fields:
-            if not sub_field in request.json[field]:
-                abort(400, f'Missing {sub_field} in {field} fields in body')
-            else:
-                value = { sub_field: request.json[field][sub_field]}
-                field_value.append(value)
-        if not field_value:
-            request_dict[field] = request.json[field]
+
+    request_dict['mail_domain'] = request.json['mail_domain']
+
+    admin_fields = [ "email", "password" ]
+    request_dict['admin'] = {}
+
+    for admin_field in admin_fields:
+        if not admin_field in request.json['admin']:
+            abort(400, f'Missing {admin_field} in Admin')
         else:
-            request_dict[field] = field_value
+            request_dict['admin'][admin_field] = request.json['admin'][admin_field]
+
+    course_fields = [ "code", "name", "semester", "year" ]
+
+    request_dict['courses'] = []
     
     for course in request.json['courses']:
         for course_field in course_fields:
             if not course_field in course.keys():
                 abort(400, f'Missing {course_field} in course')
+        request_dict['courses'].append(course)
 
     return request_dict
 
@@ -86,7 +88,7 @@ Setup database configuration
 def setup_postgres_service(client, subdomain):
     postgres_name = db_name(subdomain)
     network_name = net_name(subdomain)
-    envs = ["POSTGRES_USER=swapper", "POSTGRES_DB=swapper", "POSTGRES_PASSWORD=secret"]
+    envs = [f"POSTGRES_USER={POSTGRES_USER}", f"POSTGRES_DB={POSTGRES_DATABASE}", f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}"]
     service = client.services.create("postgres:12", command=None,
         name=postgres_name,
         networks=[network_name],
@@ -100,6 +102,7 @@ def setup_swap_service(client, subdomain, config):
     swap_name = app_name(subdomain)
     network_name = net_name(subdomain)
     setup_courses(config)
+    setup_admin_credentials(config)
     image = client.images.build(dockerfile="Dockerfile",
         path="./swap",
         tag=f"{REGISTRY_URL}:{image_name(subdomain)}",
@@ -125,12 +128,25 @@ def setup_courses(config):
     file = open(f"./swap/swap/database/seeds/CoursesTableSeeder.php", 'w')
     print(template, file=file)
 
+"""
+Setup admin credentials
+"""
+def setup_admin_credentials(config):
+    admin = config.get('admin')
+    email = admin['email']
+    password = admin['password']
+    template = Template(open("env.j2", "r").read()).render(db_name=POSTGRES_DATABASE, db_username=POSTGRES_USER, db_password=POSTGRES_PASSWORD,
+        admin_mail=email, admin_pass=password)
+    file = open(f"./swap/.env", "w")
+    print(template, file=file)
+    return (email, password)
+
 
 """
 Given a course, validates its fields ["code", "name", "semester", "year"]
 """
 def valid_course(course):
-    valid_course_code(course["code"])
+    return valid_course_code(course["code"]) and valid_course_name(course['name']) and valid_course_semester(course['semester']) and valid_course_year(course['year'])
 
 def valid_course_code(code):
     return bool(re.match(r"^[\w0-9]+$", code))
