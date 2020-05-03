@@ -67,11 +67,19 @@ Setup reverse-proxy configuration
 """
 def setup_reverse_proxy(client, subdomain):
     nginx_template = Template(open('nginx_template.j2', 'r').read()).render(subdomain=subdomain)
-    file = open(f"/opt/swap-deployer/sites/{subdomain}.conf", 'w')
+    file = open(f"./sites/{subdomain}.conf", 'w')
     print(nginx_template, file=file)
+    file.close()
+    image = client.images.build(dockerfile="reverse_upgrade.Dockerfile",
+        path=".",
+        buildargs={ "domain": subdomain },
+        tag=f"{REGISTRY_URL}:reverse")
+    client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD)
+    client.images.push(f"{REGISTRY_URL}:reverse")
     services = client.services.list(filters={'name': 'reverse-proxy'})
     rp_id = services.pop().id
     rp_service = client.services.get(rp_id)
+    #rp_service.update(image=f"{REGISTRY_URL}:reverse")
     rp_service.force_update()
 
 """
@@ -127,6 +135,7 @@ def setup_courses(config):
     template = Template(open('CoursesTableSeeder_template.j2', 'r').read()).render(courses=courses)
     file = open(f"./swap/swap/database/seeds/CoursesTableSeeder.php", 'w')
     print(template, file=file)
+    file.close()
 
 """
 Setup admin credentials

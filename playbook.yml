@@ -50,7 +50,7 @@
     - name: Login to Docker Hub
       docker_login:
         username: alvesluis98
-        password: «# FILL THIS IN
+        password: # FILL THIS IN
 
 - hosts:
   - "machine-1"
@@ -69,8 +69,6 @@
         mounts:
           - target: '/var/run/docker.sock'
             source: '/var/run/docker.sock'
-          - target: '/opt/swap-deployer/sites'
-            source: '/opt/reverse-proxy/sites'
         placement:
           constraints:
             - node.role == manager
@@ -85,9 +83,6 @@
             target_port: 80
         state: present
         force_update: yes
-        mounts:
-          - target: '/etc/nginx/sites-enabled/'
-            source: '/opt/reverse-proxy/sites/'
         networks:
           - sms-net
         placement:
