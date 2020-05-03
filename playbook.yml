@@ -41,21 +41,32 @@
 
 - hosts: all
   become: yes
+  vars_files:
+    - vars/external_vars.yml
   tasks:
-    - name: Create folder structure for reverse proxy
-      file:
-        path: /opt/reverse-proxy/sites/
-        state: directory
-        mode: 0755
     - name: Login to Docker Hub
       docker_login:
         username: alvesluis98
-        password: # FILL THIS IN
+        password: "{{ docker_hub_password }}"
 
 - hosts:
   - "machine-1"
   become: yes
+  vars_files:
+    - vars/external_vars.yml
   tasks:
+    - name: Add Mabeei secret to Swarm
+      docker_secret:
+        name: mabeei_key
+        data: "{{ mabeei_key }}"
+        state: present
+      register: mabeei_secret_id
+    - name: Add DockerHub password secret to Swarm
+      docker_secret:
+        name: docker_hub_password
+        data: "{{ docker_hub_password }}"
+        state: present
+      register: docker_hub_secret_id
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer
@@ -74,6 +85,11 @@
             - node.role == manager
         networks:
           - sms-net
+        secrets:
+          - secret_name: mabeei_key
+            secret_id: "{{ mabeei_secret_id.secret_id }}"
+          - secret_name: docker_hub_password
+            secret_id: "{{ docker_hub_secret_id.secret_id }}"
     - name: Add reverse proxy to Swarm
       docker_swarm_service:
         name: reverse-proxy
@@ -85,9 +101,6 @@
         force_update: yes
         networks:
           - sms-net
-        placement:
-          constraints:
-            - node.role == manager
         update_config:
           delay: 10s
           parallelism: 1

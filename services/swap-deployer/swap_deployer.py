@@ -7,7 +7,7 @@ import re
 Parameters
 """
 REGISTRY_USERNAME = "alvesluis98"
-REGISTRY_PASSWORD = ""
+REGISTRY_PASSWORD = open("/run/secrets/docker_hub_password").read()
 REGISTRY_URL = "alvesluis98/swap-deployer"
 DEFAULT_DOCKER_NETWORK = "sms-net"
 POSTGRES_USER = "swapper"
@@ -22,11 +22,14 @@ def validate_deploy_request():
 
     request_dict = {}
 
-    mandatory_fields = [ "mail_domain", "admin", "courses" ]
+    mandatory_fields = [ "key", "mail_domain", "admin", "courses" ]
 
     for field in mandatory_fields:
         if not field in request.json:
             abort(400, f'Missing {field} in body')
+    
+    if request.json['key'] != open("/run/secrets/mabeei_key").read():
+        abort(401, 'Invalid authentication key!')
 
     request_dict['mail_domain'] = request.json['mail_domain']
 
