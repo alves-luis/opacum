@@ -11,7 +11,7 @@
     - name: Init a new swarm
       docker_swarm:
         state: present
-        advertise_addr: "{{ hostvars['machine-1'].ansible_enp0s8.ipv4.address }}"
+        advertise_addr: "{{ hostvars[inventory_hostname].ansible_enp0s8.ipv4.address }}"
       register: swarm_info
     - name: Create an Overlay network
       docker_network:
@@ -64,6 +64,7 @@
     - role: registry
       vars:
         registry_password: "{{ private_registry_password }}"
+        network_name: 'sms-net'
 
 - hosts:
   - "machine-1"

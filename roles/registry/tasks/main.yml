@@ -84,5 +84,7 @@
       REGISTRY_AUTH_HTPASSWD_PATH: '/auth/htpasswd'
       REGISTRY_HTTP_TLS_CERTIFICATE: '/certs/sms.crt'
       REGISTRY_HTTP_TLS_KEY: '/certs/sms.key'
+    networks:
+      - "{{ network_name }}"
 
       
