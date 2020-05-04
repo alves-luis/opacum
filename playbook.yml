@@ -52,6 +52,22 @@
 - hosts:
   - "machine-1"
   become: yes
+  tasks:
+    - name: Add registry label to machine
+      docker_node:
+        hostname: 'machine-1'
+        labels:
+          registry: 'true'
+  vars_files:
+  - vars/external_vars.yml
+  roles:
+    - role: registry
+      vars:
+        registry_password: "{{ private_registry_password }}"
+
+- hosts:
+  - "machine-1"
+  become: yes
   vars_files:
     - vars/external_vars.yml
   tasks:

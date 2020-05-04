@@ -1,0 +1,85 @@
+---
+- name: Create directory structure for certificate
+  file:
+    path: /opt/registry/cert
+    state: directory
+    mode: u=r
+- name: Copy certificate to remote host
+  copy:
+    src: certs/sms.crt
+    dest: /opt/registry/cert/sms.crt
+    mode: u=r
+- name: Copy certificate key to remote host
+  copy:
+    src: certs/sms.key
+    dest: /opt/registry/cert/sms.key
+    mode: u=r
+- name: Retrieve content of certificate
+  slurp:
+    src: /opt/registry/cert/sms.crt
+  register: sms_crt
+- name: Retrieve content of certificate key
+  slurp:
+    src: /opt/registry/cert/sms.key
+  register: sms_key
+- name: Add TLS certificate as secret
+  docker_secret:
+    name: sms.crt
+    data: "{{ sms_crt['content'] | b64encode }}"
+    data_is_b64: true
+    state: present
+- name: Add TLS certificate key as secret
+  docker_secret:
+    name: sms.key
+    data: "{{ sms_key['content'] | b64encode }}"
+    data_is_b64: true
+    state: present
+- name: Create directory structure for authentication
+  file:
+    path: /opt/registry/auth
+    state: directory
+    mode: u=r
+- name: Ensure passlib module for Python is installed
+  pip:
+    name:
+      - passlib
+- name: Create admin user with password
+  htpasswd:
+    path: /opt/registry/auth/htpasswd
+    name: admin
+    password: "{{ registry_password }}"
+    owner: root
+- name: Create directory structure for registry data
+  file:
+    path: /opt/registry/data
+    state: directory
+    mode: u=rw
+- name: Add Registry Service to the Swarm
+  docker_swarm_service:
+    name: registry
+    mounts:
+      - source: /opt/registry/data
+        target: /var/lib/registry
+        type: bind
+      - source: /opt/registry/auth
+        target: /auth
+        type: bind
+      - source: /opt/registry/cert
+        target: /certs
+        type: bind
+    image: registry:2
+    # Should be private in production
+    publish:
+      - published_port: 4000
+        target_port: 5000
+    placement:
+      constraints:
+        - 'node.labels.registry == true'
+    env:
+      REGISTRY_AUTH: 'htpasswd'
+      REGISTRY_AUTH_HTPASSWD_REALM: 'Registry Realm'
+      REGISTRY_AUTH_HTPASSWD_PATH: '/auth/htpasswd'
+      REGISTRY_HTTP_TLS_CERTIFICATE: '/certs/sms.crt'
+      REGISTRY_HTTP_TLS_KEY: '/certs/sms.key'
+
+      
