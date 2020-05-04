@@ -39,16 +39,19 @@
     path: /opt/registry/auth
     state: directory
     mode: u=r
-- name: Ensure passlib module for Python is installed
+- name: Ensure passlib and bcrypt modules for Python are installed
   pip:
     name:
       - passlib
+      - bcrypt
 - name: Create admin user with password
   htpasswd:
     path: /opt/registry/auth/htpasswd
     name: admin
     password: "{{ registry_password }}"
-    owner: root
+    mode: u=r
+    crypt_scheme: bcrypt
+    state: present
 - name: Create directory structure for registry data
   file:
     path: /opt/registry/data
