@@ -1,0 +1,7 @@
+---
+- name: Trust self signed certificate
+  import_tasks: self_signed_cert.yml
+  when: unsafe == 'true'
+- name: Setup Registry
+  import_tasks: setup_registry.yml
+  when: create == 'true'

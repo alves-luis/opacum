@@ -1,31 +1,10 @@
 ---
-- name: Setup common TCP ports
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-    src: "{{ internal_network }}"
-  loop:
-    - "2376"
-    - "7946"
+- name: Setup Firewall Ports
+  import_tasks: setup_firewall.yml
 
-- name: Setup common UDP ports
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: udp
-    src: "{{ internal_network }}"
-  loop:
-    - "7946"
-    - "4789"
-
-- name: Setup Manager ports
-  ufw:
-    rule: allow
-    port: "2377"
-    proto: tcp
-    src: "{{ internal_network }}"
-  when: type == "manager"
+- name: Start Docker Swarm
+  import_tasks: create_swarm.yml
+  when: create == 'true'
 
 - name: Join Swarm as Worker
   docker_swarm:
@@ -34,7 +13,7 @@
     join_token: "{{ hostvars[manager_hostname].swarm_info.swarm_facts.JoinTokens.Worker }}"
     remote_addrs:
     - "{{ hostvars[manager_hostname].ansible_enp0s8.ipv4.address }}:2377"
-  when: type == "worker"
+  when: type == 'worker'
 
 - name: Join Swarm as Manager
   docker_swarm:
@@ -43,4 +22,4 @@
     join_token: "{{ hostvars[manager_hostname].swarm_info.swarm_facts.JoinTokens.Manager }}"
     remote_addrs:
     - "{{ hostvars[manager_hostname].ansible_enp0s8.ipv4.address }}:2377"
-  when: type == "manager"
+  when: type == 'manager'

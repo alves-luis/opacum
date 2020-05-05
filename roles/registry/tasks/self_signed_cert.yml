@@ -1,0 +1,11 @@
+---
+- name: Create directory structure for self-signed certificate
+  file:
+    path: /etc/docker/certs.d/servemeaswap.com:4000
+    state: directory
+    mode: u=r
+- name: Copy certificate to remote host
+  copy:
+    src: certs/sms.crt
+    dest: /etc/docker/certs.d/servemeaswap.com:4000/
+    mode: u=r

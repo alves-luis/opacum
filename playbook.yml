@@ -5,49 +5,54 @@
     - docker
 
 - hosts:
-  - "machine-1"
-  become: yes
-  tasks:
-    - name: Init a new swarm
-      docker_swarm:
-        state: present
-        advertise_addr: "{{ hostvars['machine-1'].ansible_enp0s8.ipv4.address }}"
-      register: swarm_info
-    - name: Create an Overlay network
-      docker_network:
-        name: sms-net
-        driver: overlay
-        scope: swarm
-        attachable: yes
-        ipam_config:
-          - subnet: 10.10.10.0/24
-
-- hosts:
-  - "machine-1"
+  - 'machine-1'
   become: yes
   roles:
     - role: docker-swarm
       vars:
-        type: "manager"
+        type: 'manager'
+        create: 'true'
+        network_name: 'sms-net'
 
 - hosts:
-  - "machine-2"
-  - "machine-3"
+  - 'machine-2'
+  - 'machine-3'
   become: yes
   roles:
     - role: docker-swarm
       vars:
-        type: "worker"
+        type: 'worker'
+        manager_hostname: 'machine-1'
+    - role: registry
+      vars:
+        unsafe: 'true'
+        create: 'false'
+
+- hosts:
+  - 'machine-1'
+  become: yes
+  vars_files:
+    - vars/external_vars.yml
+  roles:
+    - role: registry
+      vars:
+        registry_password: "{{ private_registry_password }}"
+        network_name: 'sms-net'
+        unsafe: 'true'
+        create: 'true'
 
 - hosts: all
   become: yes
   vars_files:
     - vars/external_vars.yml
   tasks:
-    - name: Login to Docker Hub
+    - name: Login to Registry
       docker_login:
-        username: alvesluis98
-        password: "{{ docker_hub_password }}"
+        registry: servemeaswap.com:4000
+        username: admin
+        password: "{{ private_registry_password }}"
+        reauthorize: yes
+
 
 - hosts:
   - "machine-1"
@@ -61,16 +66,16 @@
         data: "{{ mabeei_key }}"
         state: present
       register: mabeei_secret_id
-    - name: Add DockerHub password secret to Swarm
+    - name: Add Registry password secret to Swarm
       docker_secret:
-        name: docker_hub_password
-        data: "{{ docker_hub_password }}"
+        name: registry_password
+        data: "{{ private_registry_password }}"
         state: present
-      register: docker_hub_secret_id
+      register: registry_password_secret_id
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer
-        image: alvesluis98/swap-deployer:deployer
+        image: servemeaswap.com:4000/deployer:latest
         # should not be exposed in production
         publish:
           - published_port: 5000
@@ -88,12 +93,12 @@
         secrets:
           - secret_name: mabeei_key
             secret_id: "{{ mabeei_secret_id.secret_id }}"
-          - secret_name: docker_hub_password
-            secret_id: "{{ docker_hub_secret_id.secret_id }}"
+          - secret_name: registry_password
+            secret_id: "{{ registry_password_secret_id.secret_id }}"
     - name: Add reverse proxy to Swarm
       docker_swarm_service:
         name: reverse-proxy
-        image: alvesluis98/swap-deployer:reverse
+        image: servemeaswap.com:4000/reverse:latest
         publish:
           - published_port: 80
             target_port: 80
