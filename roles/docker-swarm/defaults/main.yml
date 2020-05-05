@@ -1,4 +1,6 @@
 ---
-manager_hostname: machine-1
-type: manager
-internal_network: "192.168.77.0/24"
+manager_hostname: 'machine-1'
+type: 'manager'
+internal_network: '192.168.77.0/24'
+create: 'false'
+network_name: 'sms-net'

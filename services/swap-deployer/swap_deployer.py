@@ -6,9 +6,9 @@ import re
 """
 Parameters
 """
-REGISTRY_USERNAME = "alvesluis98"
-REGISTRY_PASSWORD = open("/run/secrets/docker_hub_password").read()
-REGISTRY_URL = "alvesluis98/swap-deployer"
+REGISTRY_USERNAME = "admin"
+REGISTRY_PASSWORD = open("/run/secrets/registry_password").read()
+REGISTRY_URL = "servemeaswap.com:4000"
 DEFAULT_DOCKER_NETWORK = "sms-net"
 POSTGRES_USER = "swapper"
 POSTGRES_DATABASE = "swapper"
@@ -76,13 +76,13 @@ def setup_reverse_proxy(client, subdomain):
     image = client.images.build(dockerfile="reverse_upgrade.Dockerfile",
         path=".",
         buildargs={ "domain": subdomain },
-        tag=f"{REGISTRY_URL}:reverse")
-    client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD)
-    client.images.push(f"{REGISTRY_URL}:reverse")
+        tag=f"{REGISTRY_URL}/reverse:latest")
+    client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD, registry=REGISTRY_URL)
+    client.images.push(f"{REGISTRY_URL}/reverse:latest")
     services = client.services.list(filters={'name': 'reverse-proxy'})
     rp_id = services.pop().id
     rp_service = client.services.get(rp_id)
-    #rp_service.update(image=f"{REGISTRY_URL}:reverse")
+    #rp_service.update(image=f"{REGISTRY_URL}/reverse:latest")
     rp_service.force_update()
 
 """
@@ -116,11 +116,11 @@ def setup_swap_service(client, subdomain, config):
     setup_admin_credentials(config)
     image = client.images.build(dockerfile="Dockerfile",
         path="./swap",
-        tag=f"{REGISTRY_URL}:{image_name(subdomain)}",
+        tag=f"{REGISTRY_URL}/swaps:{image_name(subdomain)}",
         buildargs={ "db_host": db_name(subdomain) })
-    client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD)
-    client.images.push(f"{REGISTRY_URL}:{image_name(subdomain)}")
-    service = client.services.create(f"{REGISTRY_URL}:{image_name(subdomain)}", command=None,
+    client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD, registry=REGISTRY_URL)
+    client.images.push(f"{REGISTRY_URL}/swaps:{image_name(subdomain)}")
+    service = client.services.create(f"{REGISTRY_URL}/swaps:{image_name(subdomain)}", command=None,
         name=swap_name,
         networks=[network_name, DEFAULT_DOCKER_NETWORK]
     )
@@ -194,7 +194,7 @@ def db_name(subdomain):
 Given a subdomain, returns the name of the image that should be stored in the image registry
 """
 def image_name(subdomain):
-    return f"{subdomain}-swap"
+    return f"{subdomain}"
 
 if __name__ == '__main__':
     application.run(debug=True, host='0.0.0.0')
