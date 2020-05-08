@@ -1,7 +1,9 @@
+import re
+from logging.config import dictConfig
+
+import docker
 from flask import Flask, abort, request
 from jinja2 import Template
-import docker
-import re
 
 """
 Parameters
@@ -14,8 +16,31 @@ POSTGRES_USER = "swapper"
 POSTGRES_DATABASE = "swapper"
 POSTGRES_PASSWORD = "secret"
 
+"""
+Logging configuration
+"""
+dictConfig({
+    'version': 1,
+    'formatters': {'default': {
+        'format': '[%(asctime)s] [%(levelname)s]: %(message)s',
+    }},
+    'handlers': {'wsgi': {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://flask.logging.wsgi_errors_stream',
+        'formatter': 'default'
+    }},
+    'root': {
+        'level': 'INFO',
+        'handlers': ['wsgi']
+    }
+})
+
 application = Flask(__name__)
 
+
+"""
+Validates that the request has all the necessary parameters
+"""
 def validate_deploy_request():
     if not request.json:
         abort(400, 'Not JSON encoded body')
@@ -26,9 +51,11 @@ def validate_deploy_request():
 
     for field in mandatory_fields:
         if not field in request.json:
+            application.logger.info(f"Request with path {request.full_path} was missing {field} field")
             abort(400, f'Missing {field} in body')
     
     if request.json['key'] != open("/run/secrets/mabeei_key").read():
+        application.logger.warning(f"Someone tried to use this API using this invalid key: {request.json['key']}")
         abort(401, 'Invalid authentication key!')
 
     request_dict['mail_domain'] = request.json['mail_domain']
@@ -38,6 +65,7 @@ def validate_deploy_request():
 
     for admin_field in admin_fields:
         if not admin_field in request.json['admin']:
+            application.logger.info(f"Request with path {request.full_path} was missing {admin_field} field in Admin")
             abort(400, f'Missing {admin_field} in Admin')
         else:
             request_dict['admin'][admin_field] = request.json['admin'][admin_field]
@@ -49,6 +77,7 @@ def validate_deploy_request():
     for course in request.json['courses']:
         for course_field in course_fields:
             if not course_field in course.keys():
+                application.logger.info(f"Request with path {request.full_path} was missing {course_field} field in Course")
                 abort(400, f'Missing {course_field} in course')
         request_dict['courses'].append(course)
 
@@ -59,7 +88,7 @@ def deploy(subdomain):
     deployment_dict = validate_deploy_request()
     docker_client = docker.from_env()
 
-    net = create_network(docker_client, subdomain)
+    create_network(docker_client, subdomain)
     postgres_service = setup_postgres_service(docker_client, subdomain)
     swap_service = setup_swap_service(docker_client, subdomain, deployment_dict)
     setup_reverse_proxy(docker_client, subdomain)
@@ -90,8 +119,15 @@ Create a new network, given a subdomain
 """
 def create_network(client, subdomain):
     network_name = net_name(subdomain)
-    net = client.networks.create(network_name, driver="overlay")
-    return net
+    try:
+        net = client.networks.create(network_name, driver="overlay")
+    except docker.errors.APIError as e:
+        if e.response.status_code == 409:
+            application.logger.info(f"Request with path {request.full_path} tried to create a network that already exists ({network_name}")
+            abort(409, f"Subdomain is already in use")
+        elif e.response.status_code == 500:
+            application.logger.error(f"Error 500 when creating network {subdomain}: {e.response.message}")
+            abort(503, f"Something went wrong when deploying your Swap")
 
 """
 Setup database configuration
