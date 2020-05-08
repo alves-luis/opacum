@@ -13,6 +13,13 @@
         type: 'manager'
         create: 'true'
         network_name: 'sms-net'
+  tasks:
+    - name: Setup machine as DB holder
+      docker_node:
+        hostname: 'machine-3'
+        labels:
+          db: 'true'
+        labels_state: merge
 
 - hosts:
   - 'machine-2'
@@ -46,7 +53,7 @@
   vars_files:
     - vars/external_vars.yml
   tasks:
-    - name: Login to Registry
+    - name: Login to Private Registry
       docker_login:
         registry: servemeaswap.com:4000
         username: admin
