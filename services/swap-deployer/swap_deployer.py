@@ -5,6 +5,8 @@ import docker
 from flask import Flask, abort, request
 from jinja2 import Template
 
+import os
+
 """
 Parameters
 """
@@ -88,7 +90,7 @@ def deploy(subdomain):
     deployment_dict = validate_deploy_request()
     docker_client = docker.from_env()
 
-    create_network(docker_client, subdomain)
+    network = create_network(docker_client, subdomain)
     postgres_service = setup_postgres_service(docker_client, subdomain)
     swap_service = setup_swap_service(docker_client, subdomain, deployment_dict)
     setup_reverse_proxy(docker_client, subdomain)
@@ -128,6 +130,7 @@ def create_network(client, subdomain):
         elif e.response.status_code == 500:
             application.logger.error(f"Error 500 when creating network {subdomain}: {e.response.message}")
             abort(503, f"Something went wrong when deploying your Swap")
+    return net
 
 """
 Setup database configuration
@@ -135,11 +138,15 @@ Setup database configuration
 def setup_postgres_service(client, subdomain):
     postgres_name = db_name(subdomain)
     network_name = net_name(subdomain)
+    volume_name = vol_name(subdomain)
+    client.volumes.create(name=volume_name, driver='local')
     envs = [f"POSTGRES_USER={POSTGRES_USER}", f"POSTGRES_DB={POSTGRES_DATABASE}", f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}"]
     service = client.services.create("postgres:12", command=None,
         name=postgres_name,
         networks=[network_name],
-        env=envs)
+        env=envs,
+        constraints=["node.labels.db == true"],
+        mounts=[f"{volume_name}:/var/lib/postgresql/data:rw"])
     return service
 
 """
@@ -231,6 +238,12 @@ Given a subdomain, returns the name of the image that should be stored in the im
 """
 def image_name(subdomain):
     return f"{subdomain}"
+
+"""
+Given a subdomain, returns the name of the volume that should be attached to that DB
+"""
+def vol_name(subdomain):
+    return f"{subdomain}-vol"
 
 if __name__ == '__main__':
     application.run(debug=True, host='0.0.0.0')
