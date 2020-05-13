@@ -91,10 +91,23 @@ def deploy(subdomain):
     docker_client = docker.from_env()
 
     network = create_network(docker_client, subdomain)
-    postgres_service = setup_postgres_service(docker_client, subdomain)
-    swap_service = setup_swap_service(docker_client, subdomain, deployment_dict)
-    setup_reverse_proxy(docker_client, subdomain)
+    try: 
+        postgres_service = setup_postgres_service(docker_client, subdomain)
+        swap_service = setup_swap_service(docker_client, subdomain, deployment_dict)
+        setup_reverse_proxy(docker_client, subdomain)
+    except Exception as e:
+        undo_deploy(network, postgres_service, swap_service)
+        application.logger.info(f"Undoing deployment of {subdomain} due to: {e}")
+        abort(400)
     return "Ok"
+
+def undo_deploy(network, postgres_service, swap_service):
+    if swap_service: # if swap service created
+        swap_service.remove()
+    if postgres_service: # if db service created
+        postgres_service.remove()
+    if network: # if network created
+        network.remove()
 
 """
 Setup reverse-proxy configuration
@@ -113,7 +126,6 @@ def setup_reverse_proxy(client, subdomain):
     services = client.services.list(filters={'name': 'reverse-proxy'})
     rp_id = services.pop().id
     rp_service = client.services.get(rp_id)
-    #rp_service.update(image=f"{REGISTRY_URL}/reverse:latest")
     rp_service.force_update()
 
 """
@@ -125,7 +137,7 @@ def create_network(client, subdomain):
         net = client.networks.create(network_name, driver="overlay")
     except docker.errors.APIError as e:
         if e.response.status_code == 409:
-            application.logger.info(f"Request with path {request.full_path} tried to create a network that already exists ({network_name}")
+            application.logger.info(f"Request with path {request.full_path} tried to create a network that already exists ({network_name})")
             abort(409, f"Subdomain is already in use")
         elif e.response.status_code == 500:
             application.logger.error(f"Error 500 when creating network {subdomain}: {e.response.message}")
@@ -139,14 +151,24 @@ def setup_postgres_service(client, subdomain):
     postgres_name = db_name(subdomain)
     network_name = net_name(subdomain)
     volume_name = vol_name(subdomain)
-    client.volumes.create(name=volume_name, driver='local')
+    try:
+        volume = client.volumes.create(name=volume_name, driver='local')
+    except docker.errors.APIError as e:
+        raise Exception("Database could not create volume", f"{e.response.message}")
+
     envs = [f"POSTGRES_USER={POSTGRES_USER}", f"POSTGRES_DB={POSTGRES_DATABASE}", f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}"]
-    service = client.services.create("postgres:12", command=None,
-        name=postgres_name,
-        networks=[network_name],
-        env=envs,
-        constraints=["node.labels.db == true"],
-        mounts=[f"{volume_name}:/var/lib/postgresql/data:rw"])
+
+    try:
+        service = client.services.create("postgres:12", command=None,
+            name=postgres_name,
+            networks=[network_name],
+            env=envs,
+            constraints=["node.labels.db == true"],
+            mounts=[f"{volume_name}:/var/lib/postgresql/data:rw"])
+    except docker.errors.APIError as e:
+        volume.remove()
+        raise Exception("Could not create Database service", f"{e.response.message}")
+
     return service
 
 """
