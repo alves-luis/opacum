@@ -105,11 +105,14 @@ def deploy(subdomain):
 
 @application.route('/deploy/<subdomain>/', methods=['DELETE'])
 def delete(subdomain):
+    if request.json['key'] != open("/run/secrets/mabeei_key").read():
+        log.warning(f"Someone tried to use this API using this invalid key: {request.json['key']}")
+        abort(401, 'Invalid authentication key!')
     docker_client = docker.from_env()
 
     delete_postgres_service(docker_client, subdomain)
     delete_swap_service(docker_client, subdomain)
-    update_reverse_proxy(docker_client, subdomain)
+    downgrade_reverse_proxy(docker_client, subdomain)
     delete_network(docker_client, subdomain)
     return make_response("Ok", 200)
 
@@ -133,11 +136,43 @@ def delete_swap_service(client, subdomain):
     service = client.services.get(service_id)
     service.remove()
 
-def update_reverse_proxy(client, subdomain):
-    return
+def downgrade_reverse_proxy(client, subdomain): 
+    try:
+        client.images.build(dockerfile="reverse_downgrade.Dockerfile",
+            path=".",
+            buildargs={ "domain": subdomain },
+            tag=f"{REGISTRY_URL}/reverse:latest")
+    except docker.errors.BuildError as e:
+        log.error(f"Could not downgrade reverse-proxy image for subdomain {subdomain} ({e.build_log})")
+        raise Exception("Could not build reverse-proxy downgrade image", f"{e.build_log}")
+    
+    try:
+        client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD, registry=REGISTRY_URL)
+    except docker.errors.APIError as e:
+        log.error(f"Could not login to registry for subdomain {subdomain} ({e.response.message})")
+        raise Exception("Could not login to registry", f"{e.response.message}")
+    
+    try:
+        client.images.push(f"{REGISTRY_URL}/reverse:latest")
+    except docker.errors.APIError as e:
+        log.error(f"Could not push new reverse image to registry for subdomain {subdomain}")
+        raise Exception("Could not push reverse image to registry", f"{e.response.message}")
+    
+    try:
+        services = client.services.list(filters={'name': 'reverse-proxy'})
+        rp_id = services.pop().id
+        rp_service = client.services.get(rp_id)
+        rp_service.force_update()
+    except docker.errors.APIError as e:
+        log.critical(f"Could not find/update reverse-proxy while setting up subdomain {subdomain}")
+        raise Exception("Could not update reverse-proxy service", f"{e.response.message}")
 
 def delete_network(client, subdomain):
-    return
+    network_name = net_name(subdomain)
+    networks = client.networks.list(names=[f'{network_name}'])
+    network_id = networks.pop().id
+    network = client.networks.get(network_id)
+    network.remove()
 
 """
 If deploy failed, undo all the services that had been created
@@ -166,7 +201,7 @@ def setup_reverse_proxy(client, subdomain):
             tag=f"{REGISTRY_URL}/reverse:latest")
     except docker.errors.BuildError as e:
         log.error(f"Could not upgrade reverse-proxy image for subdomain {subdomain} ({e.build_log})")
-        raise Exception("Could not build Swap image", f"{e.build_log}")
+        raise Exception("Could not build Reverse-Proxy image", f"{e.build_log}")
     
     try:
         client.login(username=REGISTRY_USERNAME, password=REGISTRY_PASSWORD, registry=REGISTRY_URL)

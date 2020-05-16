@@ -7,7 +7,7 @@ RUN pip3 install flask docker gunicorn jinja2
 COPY swap /opt/swap-deployer/swap
 
 # Copy the app itself and templates to the container
-COPY swap_deployer.py nginx_template.j2 CoursesTableSeeder_template.j2 env.j2 reverse_upgrade.Dockerfile /opt/swap-deployer/
+COPY swap_deployer.py nginx_template.j2 CoursesTableSeeder_template.j2 env.j2 reverse_upgrade.Dockerfile reverse_downgrade.Dockerfile /opt/swap-deployer/
 
 # Change working dir
 WORKDIR /opt/swap-deployer
