@@ -8,6 +8,10 @@ from jinja2 import Template
 
 import os
 
+import psycopg2
+
+import time
+
 """
 Parameters
 """
@@ -93,6 +97,8 @@ def deploy(subdomain):
     docker_client = docker.from_env()
 
     network = create_network(docker_client, subdomain)
+    swap_service = None
+    postgres_service = None
     try: 
         postgres_service = setup_postgres_service(docker_client, subdomain)
         swap_service = setup_swap_service(docker_client, subdomain, deployment_dict)
@@ -121,6 +127,28 @@ def delete_postgres_service(client, subdomain):
     services = client.services.list(filters={'name': f'{database_name}'})
     service_id = services.pop().id
     service = client.services.get(service_id)
+
+    service.update(networks=[DEFAULT_DOCKER_NETWORK]) # need to be able to execute commands
+    service.reload()
+    time.sleep(5) # wait for connectivity
+    try:
+        con = psycopg2.connect(user = POSTGRES_USER,
+                                password = POSTGRES_PASSWORD,
+                                host = db_name(subdomain),
+                                port = "5432",
+                                dbname = "postgres")
+        drop_query = f"DROP DATABASE {POSTGRES_DATABASE};"
+        con.set_isolation_level(0)
+        cur = con.cursor()
+        cur.execute(drop_query)
+        con.commit()
+        create_query = f"CREATE DATABASE {POSTGRES_DATABASE};"
+        cur.execute(create_query)
+        con.commit()
+    except (Exception, psycopg2.Error) as er:
+        log.warning(f"Error connecting to db: {er}")
+        abort(500)
+    con.close()
     service.remove()
 
     volume_name = vol_name(subdomain)
@@ -276,7 +304,7 @@ def setup_swap_service(client, subdomain, config):
     swap_name = app_name(subdomain)
     network_name = net_name(subdomain)
     setup_courses(config)
-    setup_admin_credentials(config)
+    setup_admin_credentials(config, subdomain)
 
     try:
         client.images.build(dockerfile="Dockerfile",
@@ -284,7 +312,7 @@ def setup_swap_service(client, subdomain, config):
             tag=f"{REGISTRY_URL}/swaps:{image_name(subdomain)}",
             buildargs={ "db_host": db_name(subdomain) })
     except docker.errors.BuildError as e:
-        log.error(f"Could not build image for subdomain {subdomain} ({e.build_log})")
+        log.error(f"Could not build image for subdomain {subdomain} ({e.msg})")
         raise Exception("Could not build Swap image", f"{e.build_log}")
 
     try:
@@ -327,14 +355,15 @@ def setup_courses(config):
 """
 Setup admin credentials
 """
-def setup_admin_credentials(config):
+def setup_admin_credentials(config, subdomain):
     admin = config.get('admin')
     email = admin['email']
     password = admin['password']
     template = Template(open("env.j2", "r").read()).render(db_name=POSTGRES_DATABASE, db_username=POSTGRES_USER, db_password=POSTGRES_PASSWORD,
-        admin_mail=email, admin_pass=password)
+        admin_mail=email, admin_pass=password, app_url=f"{subdomain}.servemeaswap.com", subdomain=subdomain)
     file = open(f"./swap/.env", "w")
     print(template, file=file)
+    file.close()
 
 
 """
@@ -350,10 +379,10 @@ def valid_course_name(name):
     return bool(re.match(r"^[\w ]+$", name))
 
 def valid_course_semester(semester):
-    return isinstance(semester, int) and semester >= 0
+    return isinstance(semester, int) and semester > 0
 
 def valid_course_year(year):
-    return isinstance(year, int) and year >= 0
+    return isinstance(year, int) and year > 0
 
 """
 Given a subdomain, returns the name that the Swap Network should have
