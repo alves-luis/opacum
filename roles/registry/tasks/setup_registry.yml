@@ -6,12 +6,12 @@
     mode: u=r
 - name: Copy certificate to remote host
   copy:
-    src: certs/sms.crt
+    src: certs/registry/sms.crt
     dest: /opt/registry/cert/sms.crt
     mode: u=r
 - name: Copy certificate key to remote host
   copy:
-    src: certs/sms.key
+    src: certs/registry/sms.key
     dest: /opt/registry/cert/sms.key
     mode: u=r
 - name: Retrieve content of certificate
@@ -59,7 +59,7 @@
     mode: u=rw
 - name: Add registry label to machine
   docker_node:
-    hostname: "{{ inventory_hostname }}"
+    hostname: "{{ hostvars[inventory_hostname].ansible_nodename }}"
     labels:
       registry: 'true'
 - name: Add Registry Service to the Swarm
@@ -72,23 +72,23 @@
       - source: /opt/registry/auth
         target: /auth
         type: bind
-      - source: /opt/registry/cert
-        target: /certs
-        type: bind
     image: registry:2
     # Should be private in production
     publish:
-      - published_port: 4000
+      - published_port: 5000
         target_port: 5000
     placement:
       constraints:
         - 'node.labels.registry == true'
     env:
+      REGISTRY_HTTP_TLS_CERTIFICATE: '/run/secrets/sms.crt'
+      REGISTRY_HTTP_TLS_KEY: '/run/secrets/sms.key'
       REGISTRY_AUTH: 'htpasswd'
-      REGISTRY_AUTH_HTPASSWD_REALM: 'Registry Realm'
       REGISTRY_AUTH_HTPASSWD_PATH: '/auth/htpasswd'
-      REGISTRY_HTTP_TLS_CERTIFICATE: '/certs/sms.crt'
-      REGISTRY_HTTP_TLS_KEY: '/certs/sms.key'
+      REGISTRY_AUTH_HTPASSWD_REALM: 'Registry Realm'
+    secrets:
+      - secret_name: sms.crt
+      - secret_name: sms.key
     networks:
       - "{{ network_name }}"
 

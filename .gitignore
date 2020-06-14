@@ -5,3 +5,4 @@ __*
 vars/external_vars.yml
 certs/*.key
 certs/*.crt
+certs/registry/*

@@ -1,0 +1,106 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - docker
+
+- hosts:
+  - 'manager'
+  become: yes
+  roles:
+    - role: docker-swarm
+      vars:
+        type: 'manager'
+        create: 'true'
+        network_name: 'sms-net'
+        manager_hostname: "{{ hostvars[inventory_hostname].ansible_default_ipv4.address }}"
+  tasks:
+    - name: Setup machine as DB holder
+      docker_node:
+        hostname: 'sms-ubuntu'
+        labels:
+          db: 'true'
+        labels_state: merge
+
+- hosts:
+  - 'manager'
+  become: yes
+  vars_files:
+    - vars/external_vars.yml
+  roles:
+    - role: registry
+      vars:
+        registry_password: "{{ private_registry_password }}"
+        network_name: 'sms-net'
+        unsafe: 'false'
+        create: 'true'
+
+- hosts: all
+  become: yes
+  vars_files:
+    - vars/external_vars.yml
+  tasks:
+    - name: Login to Private Registry
+      docker_login:
+        registry: servemeaswap.com:4000
+        username: admin
+        password: "{{ private_registry_password }}"
+        reauthorize: yes
+
+
+- hosts:
+  - 'manager'
+  become: yes
+  vars_files:
+    - vars/external_vars.yml
+  tasks:
+    - name: Add Mabeei secret to Swarm
+      docker_secret:
+        name: mabeei_key
+        data: "{{ mabeei_key }}"
+        state: present
+      register: mabeei_secret_id
+    - name: Add Registry password secret to Swarm
+      docker_secret:
+        name: registry_password
+        data: "{{ private_registry_password }}"
+        state: present
+      register: registry_password_secret_id
+    - name: Add swap-deployer service to Swarm
+      docker_swarm_service:
+        name: swap-deployer
+        image: servemeaswap.com:4000/deployer:latest
+        # should not be exposed in production
+        publish:
+          - published_port: 5000
+            target_port: 5000
+        state: present
+        force_update: yes
+        mounts:
+          - target: '/var/run/docker.sock'
+            source: '/var/run/docker.sock'
+        placement:
+          constraints:
+            - node.role == manager
+        networks:
+          - sms-net
+        secrets:
+          - secret_name: mabeei_key
+            secret_id: "{{ mabeei_secret_id.secret_id }}"
+          - secret_name: registry_password
+            secret_id: "{{ registry_password_secret_id.secret_id }}"
+    - name: Add reverse proxy to Swarm
+      docker_swarm_service:
+        name: reverse-proxy
+        image: servemeaswap.com:4000/reverse:latest
+        publish:
+          - published_port: 80
+            target_port: 80
+        state: present
+        force_update: yes
+        networks:
+          - sms-net
+        update_config:
+          delay: 10s
+          parallelism: 1
+        replicas: 2

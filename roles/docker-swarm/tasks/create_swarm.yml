@@ -2,7 +2,7 @@
 - name: Init a new swarm
   docker_swarm:
     state: present
-    advertise_addr: "{{ hostvars[inventory_hostname].ansible_enp0s8.ipv4.address }}"
+    advertise_addr: "{{ hostvars[inventory_hostname].ansible_default_ipv4.address }}"
   register: swarm_info
 - name: Create an Overlay network
   docker_network:
