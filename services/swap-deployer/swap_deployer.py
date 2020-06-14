@@ -13,7 +13,7 @@ Parameters
 """
 REGISTRY_USERNAME = "admin"
 REGISTRY_PASSWORD = open("/run/secrets/registry_password").read()
-REGISTRY_URL = "servemeaswap.com:4000"
+REGISTRY_URL = "registry.servemeaswap.com:5000"
 DEFAULT_DOCKER_NETWORK = "sms-net"
 POSTGRES_USER = "swapper"
 POSTGRES_DATABASE = "swapper"

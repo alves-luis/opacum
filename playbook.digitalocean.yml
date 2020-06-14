@@ -1,9 +1,11 @@
 ---
+# Install and setup Docker
 - hosts: all
   become: yes
   roles:
     - docker
 
+# Setup Docker Swarm
 - hosts:
   - 'manager'
   become: yes
@@ -22,6 +24,7 @@
           db: 'true'
         labels_state: merge
 
+# Setup Docker Registry
 - hosts:
   - 'manager'
   become: yes
@@ -34,20 +37,15 @@
         network_name: 'sms-net'
         unsafe: 'false'
         create: 'true'
-
-- hosts: all
-  become: yes
-  vars_files:
-    - vars/external_vars.yml
   tasks:
-    - name: Login to Private Registry
+    - name: Login to created registry
       docker_login:
-        registry: servemeaswap.com:4000
+        registry: registry.servemeaswap.com:5000
         username: admin
         password: "{{ private_registry_password }}"
         reauthorize: yes
 
-
+# Setup deployer and reverse-proxy
 - hosts:
   - 'manager'
   become: yes
@@ -69,10 +67,10 @@
     - name: Add swap-deployer service to Swarm
       docker_swarm_service:
         name: swap-deployer
-        image: servemeaswap.com:4000/deployer:latest
+        image: registry.servemeaswap.com:5000/deployer:latest
         # should not be exposed in production
         publish:
-          - published_port: 5000
+          - published_port: 4000
             target_port: 5000
         state: present
         force_update: yes
@@ -92,10 +90,10 @@
     - name: Add reverse proxy to Swarm
       docker_swarm_service:
         name: reverse-proxy
-        image: servemeaswap.com:4000/reverse:latest
+        image: registry.servemeaswap.com:5000/reverse:latest
         publish:
-          - published_port: 80
-            target_port: 80
+          - published_port: 443
+            target_port: 443
         state: present
         force_update: yes
         networks:
