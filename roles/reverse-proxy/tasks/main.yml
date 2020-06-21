@@ -1,0 +1,33 @@
+---
+- name: Add TLS certificate as secret
+  docker_secret:
+    name: wildcard.crt
+    data: "{{ lookup('file', 'certs/wildcard/wildcard.crt') | b64encode }}"
+    data_is_b64: true
+    state: present
+- name: Add TLS certificate key as secret
+  docker_secret:
+    name: wildcard.key
+    data: "{{ lookup('file', 'certs/wildcard/wildcard.key') | b64encode }}"
+    data_is_b64: true
+    state: present
+- name: Add reverse proxy to Swarm
+  docker_swarm_service:
+    name: reverse-proxy
+    image: registry.servemeaswap.com:5000/reverse:latest
+    publish:
+      - published_port: 443
+        target_port: 443
+      - published_port: 80
+        target_port: 80
+    state: present
+    force_update: yes
+    networks:
+      - sms-net
+    update_config:
+      delay: 10s
+      parallelism: 1
+    replicas: 2
+    secrets:
+      - secret_name: wildcard.crt
+      - secret_name: wildcard.key

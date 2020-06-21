@@ -1,6 +1,12 @@
 server {
-  listen 80;
+  listen 443 ssl;
   server_name {{ subdomain }}.servemeaswap.com;
+
+  ssl_certificate /run/secrets/wildcard.crt; # managed by Certbot
+  ssl_certificate_key /run/secrets/wildcard.key; # managed by Certbot
+  include /etc/nginx/options-ssl-nginx.conf; # managed by Certbot
+  ssl_dhparam /etc/nginx/ssl-dhparams.pem; # managed by Certbot
+
 
   location / {
     proxy_set_header X-Real-IP $remote_addr;
@@ -9,4 +15,9 @@ server {
     proxy_set_header Host $http_host;
     proxy_pass http://{{ subdomain }}-app;
   }
+}
+server {
+    listen 80;
+    server_name {{ subdomain }}.servemeaswap.com;
+    return 301 https://{{ subdomain }}.servemeaswap.com$request_uri;
 }

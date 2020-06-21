@@ -45,7 +45,7 @@
         password: "{{ private_registry_password }}"
         reauthorize: yes
 
-# Setup deployer and reverse-proxy
+# Setup deployer
 - hosts:
   - 'manager'
   become: yes
@@ -87,18 +87,13 @@
             secret_id: "{{ mabeei_secret_id.secret_id }}"
           - secret_name: registry_password
             secret_id: "{{ registry_password_secret_id.secret_id }}"
-    - name: Add reverse proxy to Swarm
-      docker_swarm_service:
-        name: reverse-proxy
-        image: registry.servemeaswap.com:5000/reverse:latest
-        publish:
-          - published_port: 443
-            target_port: 443
-        state: present
-        force_update: yes
-        networks:
-          - sms-net
-        update_config:
-          delay: 10s
-          parallelism: 1
-        replicas: 2
+
+# Setup Reverse Proxy
+- hosts:
+  - 'manager'
+  become: yes
+  vars_files:
+    - vars/external_vars.yml
+  roles:
+    - role: reverse-proxy
+
