@@ -357,8 +357,9 @@ def setup_admin_credentials(config):
     admin = config.get('admin')
     email = admin['email']
     password = admin['password']
+    mail = config.get('mail_domain')
     template = Template(open("env.j2", "r").read()).render(db_name=POSTGRES_DATABASE, db_username=POSTGRES_USER, db_password=POSTGRES_PASSWORD,
-        admin_mail=email, admin_pass=password)
+        admin_mail=email, admin_pass=password, mail_domain=mail)
     file = open(f"./swap/.env", "w")
     print(template, file=file)
 
