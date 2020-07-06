@@ -1,7 +1,9 @@
 FROM python:3.8.2-alpine3.11
 
+RUN apk update && apk add postgresql-dev gcc python3-dev musl-dev
+
 # Install Flask, Docker, Gunicorn and Jinja2 libraries for Python
-RUN pip3 install flask docker gunicorn jinja2
+RUN pip3 install flask docker gunicorn jinja2 psycopg2
 
 # Copy the swap base files to the container
 COPY swap /opt/swap-deployer/swap

@@ -8,6 +8,9 @@ from jinja2 import Template
 
 import os
 
+import psycopg2
+import time
+
 """
 Parameters
 """
@@ -121,13 +124,36 @@ def delete_postgres_service(client, subdomain):
     services = client.services.list(filters={'name': f'{database_name}'})
     service_id = services.pop().id
     service = client.services.get(service_id)
+    
+    service.update(networks=[DEFAULT_DOCKER_NETWORK]) # need to be able to execute commands
+    service.reload()
+    time.sleep(5) # wait for connectivity
+    try:
+        con = psycopg2.connect(user = POSTGRES_USER,
+                                password = POSTGRES_PASSWORD,
+                                host = db_name(subdomain),
+                                port = "5432",
+                                dbname = "postgres")
+        drop_query = f"DROP DATABASE {POSTGRES_DATABASE};"
+        con.set_isolation_level(0)
+        cur = con.cursor()
+        cur.execute(drop_query)
+        con.commit()
+        create_query = f"CREATE DATABASE {POSTGRES_DATABASE};"
+        cur.execute(create_query)
+        con.commit()
+    except (Exception, psycopg2.Error) as er:
+        log.warning(f"Error connecting to db: {er}")
+        abort(500)
+    con.close()
     service.remove()
 
     volume_name = vol_name(subdomain)
     volumes = client.volumes.list(filters={'name': f'{volume_name}'})
     volume_id = volumes.pop().id
     volume = client.volumes.get(volume_id)
-    volume.remove()
+    client.volumes.prune()
+    #volume.remove(force=True)
 
 def delete_swap_service(client, subdomain):
     swap_name = app_name(subdomain)
