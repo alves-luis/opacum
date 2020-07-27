@@ -302,7 +302,7 @@ def setup_swap_service(client, subdomain, config):
     swap_name = app_name(subdomain)
     network_name = net_name(subdomain)
     setup_courses(config)
-    setup_admin_credentials(config)
+    setup_admin_credentials(config, subdomain)
 
     try:
         client.images.build(dockerfile="Dockerfile",
@@ -353,13 +353,13 @@ def setup_courses(config):
 """
 Setup admin credentials
 """
-def setup_admin_credentials(config):
+def setup_admin_credentials(config, subdomain):
     admin = config.get('admin')
     email = admin['email']
     password = admin['password']
     mail = config.get('mail_domain')
     template = Template(open("env.j2", "r").read()).render(db_name=POSTGRES_DATABASE, db_username=POSTGRES_USER, db_password=POSTGRES_PASSWORD,
-        admin_mail=email, admin_pass=password, mail_domain=mail)
+        admin_mail=email, admin_pass=password, mail_domain=mail, subdomain=subdomain)
     file = open(f"./swap/.env", "w")
     print(template, file=file)
 
